@@ -38,8 +38,19 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const url: string = originalRequest?.url || '';
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    /**
+     * `/auth/refresh` and `/auth/login` must never be retried through this
+     * interceptor. A 401 from refresh *is* the "no valid session" answer, so
+     * treating it as "token expired, go refresh" makes the handler call the
+     * endpoint that just failed, fail again, and hard-redirect - which reloads
+     * the SPA and starts the same sequence over. The caller gets the 401 and
+     * decides what to do instead.
+     */
+    const isAuthEndpoint = url.includes('/auth/refresh') || url.includes('/auth/login');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -68,7 +79,12 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        // Only navigate if we are not already there - assigning `href` to the
+        // current path still reloads the page, which is the other half of the
+        // loop this guard prevents.
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
