@@ -62,6 +62,31 @@ Tear down with `docker compose down` (add `-v` to also drop the database volume)
 
 ### Option B — Run locally without Docker
 
+**Quickest path** (from the repository root):
+
+```bash
+npm run setup     # installs root + backend + frontend deps, generates the Prisma client
+# create backend/.env (see below), then:
+npm run db:push   # create the tables
+npm run seed      # load demo data
+npm run dev       # starts the API and the SPA together
+```
+
+Root-level scripts, all runnable from the repository root:
+
+| Script | Does |
+| --- | --- |
+| `npm run setup` | Install every workspace's dependencies + `prisma generate` |
+| `npm run dev` | Start backend and frontend together (colour-prefixed output) |
+| `npm run build` | Type-check and build both |
+| `npm run db:push` / `db:migrate` / `db:studio` | Prisma schema commands |
+| `npm run seed` | Load the demo dataset |
+| `npm run verify` | Run the end-to-end suite |
+
+The step-by-step version follows.
+
+#### Step by step
+
 **1. Start PostgreSQL and create a database**
 
 ```bash
@@ -149,16 +174,22 @@ The Vite dev server proxies `/api` and `/socket.io` to `http://localhost:5000`, 
 
 Secrets are read exclusively from the environment. No secret is committed; `.env` is gitignored and only `.env.example` files are tracked.
 
-### macOS note
+### macOS note — port 5000
 
-macOS **AirPlay Receiver** listens on port 5000 and will shadow the API with an empty `403`. Either disable it (System Settings → General → AirDrop & Handoff) or run the backend on another port:
+macOS **AirPlay Receiver** listens on port 5000 and will shadow the API with an empty `403`, or cause `EADDRINUSE` on startup. Either disable it (System Settings → General → AirDrop & Handoff → Receiver Off) or move the API to another port — two files must agree:
+
+```ini
+# backend/.env
+PORT=5055
+
+# frontend/.env  — points the Vite dev proxy at the same port
+BACKEND_URL=http://localhost:5055
+```
+
+If you see `EADDRINUSE` on the port you chose, something is already listening — usually a previous `npm run dev` that wasn't stopped:
 
 ```bash
-# backend
-PORT=5055 npm run dev
-
-# frontend — point the dev proxy at the same port
-echo "BACKEND_URL=http://localhost:5055" >> frontend/.env
+lsof -ti:5055 | xargs kill
 ```
 
 ---
@@ -500,6 +531,7 @@ Prisma is the only database access path. There is no raw SQL anywhere in the con
 
 ```
 .
+├── package.json                 # root scripts: setup / dev / build / seed / verify
 ├── docker-compose.yml           # Postgres + API + SPA
 ├── .env.docker.example
 │

@@ -16,7 +16,14 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Login failed. Check your credentials.');
+      // Distinguish "the server said no" from "the server never answered".
+      // Reporting a network failure as bad credentials sends people off
+      // re-typing a password that was never the problem.
+      if (err?.response) {
+        setError(err.response.data?.error?.message || 'Login failed. Check your credentials.');
+      } else {
+        setError('Cannot reach the server. Is the backend running?');
+      }
     } finally {
       setLoading(false);
     }

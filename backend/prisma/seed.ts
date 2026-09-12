@@ -1,3 +1,8 @@
+import dotenv from 'dotenv';
+// The Prisma CLI loads .env by itself, but `tsx prisma/seed.ts` does not -
+// without this the seed fails with "Environment variable not found: DATABASE_URL".
+dotenv.config();
+
 import { PrismaClient, Role, TaskStatus, TaskPriority, NotificationType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
